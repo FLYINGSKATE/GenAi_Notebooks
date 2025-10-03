@@ -1,0 +1,81 @@
+groups:
+- name: genai-alerts
+  rules:
+  # High error rate
+  - alert: HighErrorRate
+    expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.01
+    for: 10m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High error rate on {{ $labels.instance }}"
+      description: "Error rate is {{ $value }}% for {{ $labels.path }}"
+
+  # High latency
+  - alert: HighLatency
+    expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High latency on {{ $labels.instance }}"
+      description: "99th percentile latency is {{ $value }}s"
+
+  # Model drift detection
+  - alert: ModelDriftDetected
+    expr: abs(ml_model_prediction_drift) > 0.1
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Model drift detected for {{ $labels.model_name }}"
+      description: "Drift score of {{ $value }} exceeds threshold"
+
+  # Resource usage alerts
+  - alert: HighMemoryUsage
+    expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.9
+    for: 10m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High memory usage on {{ $labels.instance }}"
+      description: "Memory usage is {{ $value | humanizePercentage }}"
+
+  - alert: HighCPUUsage
+    expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100 > 80
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High CPU usage on {{ $labels.instance }}"
+      description: "CPU usage is {{ $value }}%"
+
+  # Model performance alerts
+  - alert: ModelPerformanceDegraded
+    expr: (model_accuracy < 0.8) or (model_inference_latency_seconds > 1)
+    for: 15m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Model performance degraded: {{ $labels.model_name }}"
+      description: "Accuracy: {{ $value.accuracy | humanize }}, Latency: {{ $value.latency | humanize }}s"
+
+  # Data quality alerts
+  - alert: DataDriftDetected
+    expr: data_drift_score > 0.2
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Data drift detected for {{ $labels.feature }}"
+      description: "Drift score: {{ $value | humanize }}"
+
+  # API health check
+  - alert: APIHealthCheckFailed
+    expr: probe_success{job="blackbox"} == 0
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "API health check failed (instance {{ $labels.instance }})"
+      description: "{{ $labels.instance }} is not responding"
